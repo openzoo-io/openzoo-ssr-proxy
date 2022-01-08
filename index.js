@@ -63,6 +63,8 @@ app.get('/*', async (req,res) => {
     return request(fullUrl).pipe(res);
 });
 
+module.exports = app;
+
 // app.listen(port, () => {
 //     console.log(`Example app listening at ${port}`);
 // });
