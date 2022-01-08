@@ -56,7 +56,7 @@ app.get('*', async (req,res) => {
     req.root = TARGET_URL;
     const fullUrl =  TARGET_URL + req.originalUrl;
 
-    if(!new Crawler(req).isCrawler() && !isStatic(req)) {
+    if(new Crawler(req).isCrawler() && !isStatic(req)) {
         const path = await crawlerHandler(fullUrl);
         return res.sendFile(path);
     }
