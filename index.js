@@ -5,6 +5,7 @@ const puppeteer = require("puppeteer");
 const {writeFileSync, existsSync} = require('fs');
 const {join} = require('path');
 
+const port = process.env.PORT || 80;
 const TARGET_URL = process.env.TARGET || 'https://oz-ssr.vercel.app';
 const app =  express();
 
@@ -50,12 +51,12 @@ function isStatic(req) {
         return staticFileRegex.test(req.url) || staticPaths.some(p => req.url.includes(p));
 }
 
-app.get('/*', async (req,res) => {
+app.get('*', async (req,res) => {
 
     req.root = TARGET_URL;
     const fullUrl =  TARGET_URL + req.originalUrl;
 
-    if(new Crawler(req).isCrawler() && !isStatic(req)) {
+    if(!new Crawler(req).isCrawler() && !isStatic(req)) {
         const path = await crawlerHandler(fullUrl);
         return res.sendFile(path);
     }
@@ -63,8 +64,6 @@ app.get('/*', async (req,res) => {
     return request(fullUrl).pipe(res);
 });
 
-module.exports = app;
-
-// app.listen(port, () => {
-//     console.log(`Example app listening at ${port}`);
-// });
+app.listen(port, () => {
+    console.log(`Example app listening at ${port}`);
+});
