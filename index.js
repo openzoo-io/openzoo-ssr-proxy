@@ -5,8 +5,7 @@ const puppeteer = require("puppeteer");
 const {writeFileSync, existsSync} = require('fs');
 const {join} = require('path');
 
-const port = process.env.PORT || 5000;
-const TARGET_URL = process.env.TARGET || 'https://openzoo-ssr-2-dv6fy9dh7-berkoztrk.vercel.app';
+const TARGET_URL = process.env.TARGET || 'https://oz-ssr.vercel.app';
 const app =  express();
 
 /*
@@ -39,26 +38,24 @@ async function crawlerHandler(fullUrl) {
     return filePath;
 }
 
-app.use((req,res, next) => {
-    // Proxy server doesn't have any static files. So it shouldn't be dealing with that...
-    const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json)$/i;
-    const staticPaths = [
-        '/static/',
-        '/assets/',
-        '/public/',
-    ];
+function isStatic(req) {
+        // Proxy server doesn't have any static files. So it shouldn't be dealing with that...
+        const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr)$/i;
+        const staticPaths = [
+            '/static/',
+            '/assets/',
+            '/public/',
+        ];
+    
+        return staticFileRegex.test(req.url) || staticPaths.some(p => req.url.includes(p));
+}
 
-    const isStatic = staticFileRegex.test(req.url) || staticPaths.some(p => req.url.includes(p));
-
-    return isStatic ? res.sendStatus(404) : next();
-});
-
-app.get('*', async (req,res) => {
+app.get('/*', async (req,res) => {
 
     req.root = TARGET_URL;
     const fullUrl =  TARGET_URL + req.originalUrl;
 
-    if(new Crawler(req).isCrawler()) {
+    if(new Crawler(req).isCrawler() && !isStatic(req)) {
         const path = await crawlerHandler(fullUrl);
         return res.sendFile(path);
     }
@@ -66,6 +63,6 @@ app.get('*', async (req,res) => {
     return request(fullUrl).pipe(res);
 });
 
-app.listen(port, () => {
-    console.log(`Example app listening at ${port}`);
-});
+// app.listen(port, () => {
+//     console.log(`Example app listening at ${port}`);
+// });
