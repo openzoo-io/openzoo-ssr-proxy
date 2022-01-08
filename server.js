@@ -5,7 +5,7 @@ const puppeteer = require("puppeteer");
 const {writeFileSync, existsSync} = require('fs');
 const {join} = require('path');
 
-const port = process.env.PORT || 80;
+const port = process.env.PORT || 3000;
 const TARGET_URL = process.env.TARGET || 'https://oz-ssr.vercel.app';
 const app =  express();
 
@@ -31,7 +31,7 @@ async function crawlerHandler(fullUrl) {
 
     const browser = await puppeteer.launch({ headless: true })
     const page = await browser.newPage();
-    await page.goto(fullUrl);
+    await page.goto(fullUrl, {'waitUntil':'networkidle0'});
     const html = await page.evaluate(() => document.querySelector('*').outerHTML);
     writeFileSync(filePath, html, 'utf-8');
     await browser.close();
