@@ -9,6 +9,44 @@ const port = process.env.PORT || 3000;
 const TARGET_URL = process.env.TARGET || 'https://oz-ssr.vercel.app';
 const app =  express();
 
+const minimalArgs = [
+    '--autoplay-policy=user-gesture-required',
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-breakpad',
+    '--disable-client-side-phishing-detection',
+    '--disable-component-update',
+    '--disable-default-apps',
+    '--disable-dev-shm-usage',
+    '--disable-domain-reliability',
+    '--disable-extensions',
+    '--disable-features=AudioServiceOutOfProcess',
+    '--disable-hang-monitor',
+    '--disable-ipc-flooding-protection',
+    '--disable-notifications',
+    '--disable-offer-store-unmasked-wallet-cards',
+    '--disable-popup-blocking',
+    '--disable-print-preview',
+    '--disable-prompt-on-repost',
+    '--disable-renderer-backgrounding',
+    '--disable-setuid-sandbox',
+    '--disable-speech-api',
+    '--disable-sync',
+    '--hide-scrollbars',
+    '--ignore-gpu-blacklist',
+    '--metrics-recording-only',
+    '--mute-audio',
+    '--no-default-browser-check',
+    '--no-first-run',
+    '--no-pings',
+    '--no-sandbox',
+    '--no-zygote',
+    '--password-store=basic',
+    '--use-gl=swiftshader',
+    '--use-mock-keychain',
+  ];
+
 /*
     TODO: 
 
@@ -29,7 +67,7 @@ async function crawlerHandler(fullUrl) {
     if(existsSync(filePath))
         return filePath;
 
-    const browser = await puppeteer.launch({ headless: true })
+    const browser = await puppeteer.launch({ headless: true, args: minimalArgs })
     const page = await browser.newPage();
     await page.goto(fullUrl, {'waitUntil':'networkidle0'});
     const html = await page.evaluate(() => document.querySelector('*').outerHTML);
