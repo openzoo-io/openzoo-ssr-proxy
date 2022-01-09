@@ -27,6 +27,7 @@ let browserWSEndpoint = null;
     PORT=<application port,optional will be 3000 by default>
     TARGET=https://oz-ssr.vercel.app
     SNAPSHOT_BUCKET_NAME=oz-snapshots
+    PUPPETTEER_TIMEOUT=<timeout for a request>
 */
 
 async function isFileExists(fileName) {
@@ -53,7 +54,7 @@ async function getSnapshotHtml(mirrorUrl) {
     const browser = await puppeteer.connect({browserWSEndpoint});
     const page = await browser.newPage();
     try {
-        await page.goto(mirrorUrl, {waitUntil: 'networkidle0', 'timeout': 60000});
+        await page.goto(mirrorUrl, {waitUntil: 'networkidle0', 'timeout': process.env.PUPPETTEER_TIMEOUT});
         const html = await page.content();
         return html;
     } catch (error) {
@@ -87,7 +88,6 @@ async function takeSnapshotVersion(mirrorUrl) {
 }
 
 function isStaticRequest(url) {
-    // Proxy server doesn't have any static files. So it shouldn't be dealing with that...
     const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr|svg|ico|txt)$/i;
     const staticPaths = [
         '/static/',
@@ -102,7 +102,7 @@ app.use((req,res,next) => {
     const userAgent = req.get('User-Agent') || '';
     req.fromUrl = req.url;
     req.toUrl = TARGET_URL + req.originalUrl;
-    req.isComingFromBot = (isbot(userAgent) || userAgent.includes('facebookexternalhit'));
+    req.isComingFromBot = isbot(userAgent);
     req.isStaticFileRequest = isStaticRequest(req.toUrl);
     req.shouldTakeSnapshot = req.isComingFromBot && !req.isStaticRequest; 
 
