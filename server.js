@@ -54,7 +54,7 @@ async function getSnapshotHtml(mirrorUrl) {
     const browser = await puppeteer.connect({browserWSEndpoint});
     const page = await browser.newPage();
     try {
-        await page.goto(mirrorUrl, {waitUntil: 'networkidle0', 'timeout': process.env.PUPPETTEER_TIMEOUT});
+        await page.goto(mirrorUrl, {waitUntil: 'networkidle0', 'timeout': process.env.PUPPETEER_TIMEOUT});
         const html = await page.content();
         return html;
     } catch (error) {
@@ -112,7 +112,7 @@ app.use((req,res,next) => {
 app.get('/*', async (req,res) => {
 
     if (!browserWSEndpoint) {
-        const browser = await puppeteer.launch({headless: false});
+        const browser = await puppeteer.launch({headless: true,args: ['--no-sandbox', '--disable-setuid-sandbox']});
         browserWSEndpoint = browser.wsEndpoint();
     }
 
