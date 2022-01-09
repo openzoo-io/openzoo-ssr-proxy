@@ -88,7 +88,7 @@ async function takeSnapshotVersion(mirrorUrl) {
 
 function isStaticRequest(url) {
     // Proxy server doesn't have any static files. So it shouldn't be dealing with that...
-    const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr|svg|ico)$/i;
+    const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr|svg|ico|txt)$/i;
     const staticPaths = [
         '/static/',
         '/assets/',
