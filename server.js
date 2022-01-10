@@ -1,91 +1,13 @@
-require('dotenv').config()
+require('custom-env').env(process.env.NODE_ENV);
 const express = require('express');
 const request = require('request');
-const puppeteer = require("puppeteer");
-const AWS = require('aws-sdk');
-const isbot = require('isbot');
+const cheerio = require('cheerio');
+const axios = require('axios').default;
+const NodeCache = require( "node-cache" );
 
+const cache = new NodeCache();
+const app = express();
 const PORT = process.env.PORT || 3000;
-const TARGET_URL = process.env.TARGET || 'https://oz-ssr.vercel.app';
-
-const app =  express();
-const s3 = new AWS.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    endpoint: 's3-eu-central-1.amazonaws.com',
-    signatureVersion: 'v4',
-    region: 'eu-central-1'
-});
-
-let browserWSEndpoint = null;
-
-/*
-    .env FILE variables needs to be set:
-    -------------------------------------------
-    AWS_ACCESS_KEY_ID=<aws_access_key_id>
-    AWS_SECRET_ACCESS_KEY=<aws_secret_key_value>
-    PORT=<application port,optional will be 3000 by default>
-    TARGET=https://oz-ssr.vercel.app
-    SNAPSHOT_BUCKET_NAME=oz-snapshots
-    PUPPETTEER_TIMEOUT=<timeout for a request>
-*/
-
-async function isFileExists(fileName) {
-    try{
-        await s3.headObject({
-            Bucket: process.env.SNAPSHOT_BUCKET_NAME,
-            Key: fileName
-        }).promise();
-        return true;
-    } catch(e) {
-        return false
-    }
-}
-
-async function getFile(mirrorUrl) {
-    return s3.getSignedUrl('getObject', {
-        Bucket: process.env.SNAPSHOT_BUCKET_NAME,
-        Key: mirrorUrl,
-        Expires: 10000 + (5 * 60)
-    });
-}
-
-async function getSnapshotHtml(mirrorUrl) {
-    const browser = await puppeteer.connect({browserWSEndpoint});
-    const page = await browser.newPage();
-    try {
-        await page.goto(mirrorUrl, {waitUntil: 'networkidle0', 'timeout': process.env.PUPPETEER_TIMEOUT});
-        const html = await page.content();
-        return html;
-    } catch (error) {
-        throw error;
-    } finally{
-        page.close();
-    }
-}
-
-async function takeSnapshotVersion(mirrorUrl) {
-    const fileName = mirrorUrl.replace('http://', '').replace('https://', '') + '.html';
-    try{
-        const exist = await isFileExists(fileName);
-        if(exist)
-            return getFile(fileName);
-
-        const html = await getSnapshotHtml(mirrorUrl);
-        await s3.upload({
-            Bucket: process.env.SNAPSHOT_BUCKET_NAME,
-            Key: fileName,
-            Body: Buffer.from(html),
-            ACL:'public-read'
-        }).promise();
-
-       const fileUrl = getFile(fileName); 
-       return fileUrl;
-    } catch(e) {
-        console.error(e);
-        return null;
-    } 
-}
 
 function isStaticRequest(url) {
     const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr|svg|ico|txt)$/i;
@@ -99,39 +21,49 @@ function isStaticRequest(url) {
 }
 
 app.use((req,res,next) => {
-    const userAgent = req.get('User-Agent') || '';
     req.fromUrl = req.url;
-    req.toUrl = TARGET_URL + req.originalUrl;
-    req.isComingFromBot = isbot(userAgent);
+    req.toUrl = process.env.TARGET + req.originalUrl;
     req.isStaticFileRequest = isStaticRequest(req.toUrl);
-    req.shouldTakeSnapshot = req.isComingFromBot && !req.isStaticRequest; 
-
     next();
 });
 
 app.get('/*', async (req,res) => {
-
-    if (!browserWSEndpoint) {
-        const browser = await puppeteer.launch({headless: true,args: ['--no-sandbox', '--disable-setuid-sandbox']});
-        browserWSEndpoint = browser.wsEndpoint();
-    }
-
-    if(!req.shouldTakeSnapshot)
+    if(req.isStaticFileRequest)
         return request(req.toUrl).pipe(res);
 
-    const snapshotUrl = await takeSnapshotVersion(req.toUrl);
-    if(!snapshotUrl)
-        return request(req.toUrl).pipe(res);
-    else {
-        return request(snapshotUrl, function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                res.set('Content-Type', 'text/html');
-                return res.send(body);
+    const metaApiRequestUrl = process.env.API + '/' + req.params[0];
+    try {
+        let meta = null;
+        if(cache.has(metaApiRequestUrl))
+            meta = cache.get(metaApiRequestUrl);
+        else {
+            const response = await axios.get(metaApiRequestUrl);
+            if(response.status === 200) {
+                meta = response.data.data;
+                cache.set(metaApiRequestUrl, meta, 10000);
             }
+        }
+        
+        if(!meta)
+            throw 'Error fetching meta data.';
+
+        request(req.toUrl, function(error,response,body) {
+            const $ = cheerio.load(body);
+            $('[property="og:title"],[name="twitter:title"]').attr('content', meta.name);
+            $('[name="description"],[name="twitter:description"],[property="og:description"]').attr('content', meta.description);
+            $('[property="og:image"],[name="twitter:image"]').attr('content', meta.image);
+    
+            return res.send($.html());
         });
+    } catch (error) {
+        console.error(error);
+        return request(req.toUrl).pipe(res);
     }
 });
 
 app.listen(PORT, () => {
     console.log(`Example app listening at ${PORT}`);
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`)
+    console.log(`API: ${process.env.API}`);
+    console.log(`TARGET: ${process.env.TARGET}`);
 });

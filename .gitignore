@@ -1,4 +1,4 @@
 /node_modules
 /snapshots/*
 *.zip
-.env
+.env*
