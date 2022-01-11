@@ -3,6 +3,7 @@ const express = require('express');
 const cheerio = require('cheerio');
 const axios = require('axios').default;
 const NodeCache = require("node-cache");
+const request = require('request');
 
 const cache = new NodeCache();
 const app = express();
@@ -66,11 +67,10 @@ app.get('/clear-cache/*', (req,res) => {
 
 app.get('/*', async (req,res) => {
     try {
-        const targetResponse = (await axios.get(req.toUrl)).data;
         if(isStaticRequest(req.toUrl))
-            return res.send(targetResponse);
+            return request.get(req.toUrl).pipe(res);
 
-        console.log(req.toUrl)
+        const targetResponse = (await axios.get(req.toUrl)).data;
         const meta = await getMetadata(req.params[0]);
         if(!meta)
             return res.send(targetResponse);

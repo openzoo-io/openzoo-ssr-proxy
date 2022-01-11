@@ -10,7 +10,8 @@
     "cheerio": "^1.0.0-rc.10",
     "custom-env": "^2.0.1",
     "express": "^4.17.2",
-    "node-cache": "^5.1.2"
+    "node-cache": "^5.1.2",
+    "request": "^2.88.2"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
@@ -21,6 +22,6 @@
     "dev_linux": "NODE_ENV=dev&&nodemon server",
     "start_linux": "NODE_ENV=prod&&node server",
     "start_windows": "set NODE_ENV=prod&&node server",
-    "start": "npm run start_linux"
+    "start": "npm run start_windows"
   }
 }
