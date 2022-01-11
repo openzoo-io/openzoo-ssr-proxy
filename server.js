@@ -1,68 +1,89 @@
 require('custom-env').env(process.env.NODE_ENV);
 const express = require('express');
-const request = require('request');
 const cheerio = require('cheerio');
 const axios = require('axios').default;
-const NodeCache = require( "node-cache" );
+const NodeCache = require("node-cache");
 
 const cache = new NodeCache();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-function isStaticRequest(url) {
-    const staticFileRegex = /\.(css|js|jpg|png|toff|svg|map|json|hdr|svg|ico|txt)$/i;
-    const staticPaths = [
-        '/static/',
-        '/assets/',
-        '/public/',
-    ];
-
-    return staticFileRegex.test(url) || staticPaths.some(p => url.includes(p));
+function hasExt( url ) {
+    var parts = url.split('/'),
+        last  = parts.pop();
+    return (last.indexOf('.') != -1);
 }
 
-app.use((req,res,next) => {
-    req.fromUrl = req.url;
+function isStaticRequest(url) {
+    return hasExt(url) && !url.endsWith('html');
+}
+
+async function getMetadata(params) {
+    const metaApiRequestUrl = process.env.API + '/' + params;
+    let meta = null;
+    if(cache.has(params)) {
+        meta = cache.get(params);
+    } else {
+        meta = await axios.get(metaApiRequestUrl)
+            .then(resp => resp.data.data)
+            .then(metadata => {
+                cache.set(params, metadata, process.env.CACHE_TTL);
+                return metadata;
+            })
+            .catch(_err => null);
+    }
+    return meta;
+}
+
+function updateMetaTags(targetHtml, meta) {
+    const $ = cheerio.load(targetHtml);
+    const hasAllKeys = ['name', 'description', 'image'].every(key => key in meta); 
+
+    if(!meta || !hasAllKeys)
+        return $.html();
+
+    $('[property="og:title"],[name="twitter:title"]').attr('content', meta.name);
+    $('[name="description"],[name="twitter:description"],[property="og:description"]').attr('content', meta.description);
+    $('[property="og:image"],[name="twitter:image"]').attr('content', meta.image);
+
+    return $.html();
+}
+
+app.use((req, _res, next) => {
     req.toUrl = process.env.TARGET + req.originalUrl;
-    req.isStaticFileRequest = isStaticRequest(req.toUrl);
     next();
 });
 
-app.get('/*', async (req,res) => {
-    if(req.isStaticFileRequest)
-        return request(req.toUrl).pipe(res);
-
-    const metaApiRequestUrl = process.env.API + '/' + req.params[0];
-    try {
-        let meta = null;
-        if(cache.has(metaApiRequestUrl))
-            meta = cache.get(metaApiRequestUrl);
-        else {
-            const response = await axios.get(metaApiRequestUrl);
-            if(response.status === 200) {
-                meta = response.data.data;
-                cache.set(metaApiRequestUrl, meta, 10000);
-            }
-        }
-        
-        if(!meta)
-            throw 'Error fetching meta data.';
-
-        request(req.toUrl, function(error,response,body) {
-            const $ = cheerio.load(body);
-            $('[property="og:title"],[name="twitter:title"]').attr('content', meta.name);
-            $('[name="description"],[name="twitter:description"],[property="og:description"]').attr('content', meta.description);
-            $('[property="og:image"],[name="twitter:image"]').attr('content', meta.image);
+// Example request: http://localhost:3000/clear-cache/collection/0x11b574de3814ac6e1eea09a4613d4f56b98546f3/5
+app.get('/clear-cache/*', (req,res) => {
+    const key = req.params[0];
+    if(!cache.has(key)) 
+        return res.sendStatus(404);
     
-            return res.send($.html());
-        });
+    cache.del(key);
+    res.sendStatus(200);
+});
+
+app.get('/*', async (req,res) => {
+    try {
+        const targetResponse = (await axios.get(req.toUrl)).data;
+        if(isStaticRequest(req.toUrl))
+            return res.send(targetResponse);
+
+        console.log(req.toUrl)
+        const meta = await getMetadata(req.params[0]);
+        if(!meta)
+            return res.send(targetResponse);
+
+        return res.send(updateMetaTags(targetResponse, meta));
     } catch (error) {
         console.error(error);
-        return request(req.toUrl).pipe(res);
+        return res.sendStatus(500);
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Example app listening at ${PORT}`);
+    console.log(`Proxy listening at ${PORT}`);
     console.log(`NODE_ENV: ${process.env.NODE_ENV}`)
     console.log(`API: ${process.env.API}`);
     console.log(`TARGET: ${process.env.TARGET}`);

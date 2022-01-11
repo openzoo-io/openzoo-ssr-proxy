@@ -10,15 +10,17 @@
     "cheerio": "^1.0.0-rc.10",
     "custom-env": "^2.0.1",
     "express": "^4.17.2",
-    "node-cache": "^5.1.2",
-    "request": "^2.88.2"
+    "node-cache": "^5.1.2"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
     "nodemon": "^2.0.15"
   },
   "scripts": {
-    "dev": "node node_modules/cross-env/src/bin/cross-env.js NODE_ENV=dev nodemon server",
-    "start": "node node_modules/cross-env/src/bin/cross-env.js NODE_ENV=prod node server"
+    "dev_windows": "set NODE_ENV=dev&&nodemon server",
+    "dev_linux": "NODE_ENV=dev&&nodemon server",
+    "start_linux": "NODE_ENV=prod&&node server",
+    "start_windows": "set NODE_ENV=prod&&node server",
+    "start": "npm run start_linux"
   }
 }
