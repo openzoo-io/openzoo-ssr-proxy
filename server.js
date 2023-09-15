@@ -68,7 +68,7 @@ app.get('/clear-cache/*', (req,res) => {
 app.get('/*', async (req,res) => {
     try {
         if(isStaticRequest(req.toUrl))
-            return request.get(req.toUrl).pipe(res);
+        return request.get(req.toUrl).pipe(res);
 
         const targetResponse = (await axios.get(req.toUrl)).data;
         const meta = await getMetadata(req.params[0]);
