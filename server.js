@@ -7,7 +7,7 @@ const request = require('request');
 
 const cache = new NodeCache();
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5678;
 
 function hasExt( url ) {
     var parts = url.split('/'),
